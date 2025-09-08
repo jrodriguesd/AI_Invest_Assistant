@@ -27,6 +27,7 @@ git clone https://github.com/jrodriguesd/AI_Invest_Assistant.git
 
 ```
 pip install -r requirements.txt
+pip install git+https://github.com/jrodriguesd/quantstats_lumi
 ```
 
 4. rename .env_SAMPLE to .env
