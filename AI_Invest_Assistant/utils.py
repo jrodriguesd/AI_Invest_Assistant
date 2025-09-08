@@ -244,10 +244,8 @@ def getYPricesReportDateAndTargetDate(x, d, modifier=365):
 
 def getStockPricesIndexed(localPath):
     d = getYRawData(localPath)
-    d["Ticker_i"] = d["Ticker"]
-    d["Date_i"] = pd.to_datetime(d["Date"])
     d.reset_index(drop=True, inplace=True)
-    d.set_index(["Ticker_i", "Date_i"], inplace=True)
+    d.set_index(["Ticker", "Date"], inplace=True, drop=False)
     return d
 
 
