@@ -277,13 +277,7 @@ def calcZScores(X):
     return Z
 
 
-def getStockPriceBetweenDates(date1, date2, ticker, d, rows):
-    #     # Alternative way
-    #     rows = d[(d["Date"].between(pd.to_datetime(date1),\
-    #                                 pd.to_datetime(date2) )) \
-    #                                  & (d["Ticker"]==ticker)]
-    # rows = d.loc[(d["Date"] > date1) & (d["Date"] < date2) & (d["Ticker"] == ticker)]
-
+def getStockPriceBetweenDates(date1, date2, ticker, d):
     rows = d.loc[(ticker, date1):(ticker, date2)]
 
     return rows
@@ -303,7 +297,7 @@ def getStockPriceData(
     # date2 = y_withData[mask][y_withData[mask]["Ticker"] == ticker]["Date2"].values[0]
     date1 = dateTimeIndex[0]
     date2 = dateTimeIndex[-1]
-    rows = getStockPriceBetweenDates(date1, date2, ticker, daily_stock_prices, rows)
+    rows = getStockPriceBetweenDates(date1, date2, ticker, daily_stock_prices)
 
     return rows
 
