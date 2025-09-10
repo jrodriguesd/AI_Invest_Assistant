@@ -95,10 +95,13 @@ def getStatement(localPath, stmt="income", variant="annual"):
 
     # Download the data from the SimFin server and load into a Pandas DataFrame.
     if stmt == "cashflow":
+        df = sf.load_cashflow(variant="quarterly")
         df = sf.load_cashflow(variant=variant)
     elif stmt == "income":
+        df = sf.load_income(variant="quarterly")
         df = sf.load_income(variant=variant)
     elif stmt == "balance":
+        df = sf.load_balance(variant="quarterly")
         df = sf.load_balance(variant=variant)
     elif stmt == "shareprices":
         df = sf.load_shareprices(variant=variant)
@@ -144,7 +147,7 @@ def getXDataMerged(localPath):
             "SimFinId",
             "Currency",
             "Fiscal Year",
-            "Report Date",
+            # "Report Date",
             "Publish Date",
         ],
     )
@@ -156,7 +159,7 @@ def getXDataMerged(localPath):
             "SimFinId",
             "Currency",
             "Fiscal Year",
-            "Report Date",
+            # "Report Date",
             "Publish Date",
         ],
     )
