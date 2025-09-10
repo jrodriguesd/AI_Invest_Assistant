@@ -360,6 +360,27 @@ def getPortfolioRelativeTimeSeries(stockRet):
     return stockRet
 
 
+def getTickerPerformance(
+    ticker, y_withData, start_date, end_date, daily_stock_prices_data
+):
+    dateTimeIndex = pd.date_range(start=start_date, end=end_date, freq="W")
+    thisYearMask = y_withData["Date"].between(
+        pd.to_datetime(start_date),  ######
+        pd.to_datetime(end_date),
+    )
+
+    stockRet = getStockTimeSeries(
+        dateTimeIndex,
+        y_withData,
+        [ticker],
+        thisYearMask,
+        daily_stock_prices_data,
+    )
+    stockRetRel = getPortfolioRelativeTimeSeries(stockRet)
+
+    return stockRetRel
+
+
 def getPortTimeSeriesForYear(
     date_starting, y_withData, X, daily_stock_prices, ml_model_pipeline
 ):
@@ -766,7 +787,7 @@ def fixXRatios(X):
         min = df_min[col]
         max = df_max[col]
         if min >= max:
-            ic("Error en fixRatios ", col, min, max)
+            print("Error en fixRatios ", col, min, max)
         X[col] = X[col].clip(min, max)
 
 

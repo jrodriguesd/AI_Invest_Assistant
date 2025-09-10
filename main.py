@@ -49,6 +49,11 @@ from AI_Invest_Assistant.utils import getResultsForModel
 from AI_Invest_Assistant.utils import plotBacktestDist
 from AI_Invest_Assistant.utils import calcZScores
 from AI_Invest_Assistant.utils import generateDataFile
+from AI_Invest_Assistant.utils import getTickerPerformance
+
+# from AI_Invest_Assistant.utils import getStockPriceBetweenDates
+# from AI_Invest_Assistant.utils import getStockTimeSeries
+# from AI_Invest_Assistant.utils import getPortfolioRelativeTimeSeries
 
 # * --------------------- *
 # *    Globals (Begin)    *
@@ -69,14 +74,90 @@ def handler(signum, frame):
     sys.exit(-1)
 
 
-def backTest(localPath):
+def getBackTestStatsReportEntry(model_name, returns):
+    total_return = round(qs.stats.comp(returns) * 100, 2)
+    total_return = f"{total_return:3.2f} %"
+    volatility = round(qs.stats.volatility(returns * 100, periods=52), 2)
+    volatility = f"{volatility:3.2f} %"
+    sortino = round(qs.stats.sortino(returns, periods=52), 2)
+    sharpe = round(qs.stats.sharpe(returns, periods=52), 2)
+    return [model_name, total_return, volatility, sharpe, sortino]
+
+
+def generateBackTestStatsReport(train, test, stats_report):
+    stats_report_df = pd.DataFrame(
+        stats_report,
+        columns=["Model", "Total Return", "Volatility", "Sharpe", "Sortino"],
+    )
+
+    stats_report_df.sort_values(["Sortino", "Sharpe"], inplace=True, ascending=False)
+    stats_report_df.reset_index(drop=True, inplace=True)
+
+    print("")
+    print(f"Train Period from {train[0]} to {train[-1]}")
+    print(f"Test Period from {test[0]} to {test[-1]}")
+    print("")
+    print(stats_report_df)
+    print("")
+
+    getBackTestEOYReportEntry
+
+
+def getBackTestEOYReportEntry(model_name, returns):
+    eoy = qs.stats.monthly_returns(returns)
+    eoy.reset_index(inplace=True)
+
+    eoy_df = pd.DataFrame()
+    eoy_df["Date"] = eoy["index"]
+
+    eoy_df["Return"] = round(eoy["EOY"] * 100, 2)
+    eoy_df["Return"] = eoy_df["Return"].astype(str)
+    eoy_df["Return"] = eoy_df["Return"] + " %"
+
+    eoy_df.set_index("Date", inplace=True)
+
+    t_eoy_df = eoy_df.transpose()
+
+    eoy_dict = t_eoy_df.iloc[0].to_dict()
+
+    eoy_list = list(eoy_dict.items())
+    eoy_list.insert(0, ("Model", model_name))
+
+    eoy_dict = dict(eoy_list)
+
+    return eoy_dict
+
+
+def generateBackTestEOYReport(train, test, eoy_report, keys):
+    eoy_report_df = pd.DataFrame(
+        eoy_report,
+        columns=keys,
+    )
+    print("")
+    print(f"EOY (Calendar Years) Report")
+    print("")
+    print(eoy_report_df)
+    print("")
+
+
+def generateHTMLReport(returns, model_name, benchmark):
+    output_name = OUTPUT_DATA_DIR + "\\" + model_name + "_" + benchmark + ".html"
+    output_name = os.path.normpath(output_name)
+    qs.reports.html(
+        returns,
+        title="Strategy: " + model_name,
+        output=output_name,
+        periods_per_year=52,
+        benchmark=benchmark,
+        benchmark_period=52,
+    )
+    pass
+
+
+def backTest(localPath, verbose=True):
     X, y = getXy(localPath)
 
     daily_stock_prices_data = getStockPricesIndexed(localPath)
-
-    # getStatement(
-    #     localPath, stmt="shareprices", variant="daily"
-    # )
 
     train_mask = y["Date"].dt.year < 2016
 
@@ -96,28 +177,69 @@ def backTest(localPath):
         "XGBRegressor",
     ]
 
+    spy_RetRel = None
+    stats_report = []
+    EOY_report = []
+    EOY_keys = []
+
     for model_name in models:
         # Train model
         trained_model_pipeline = getTrainedPipeline(model_name, X_train, yperf)
 
+        if verbose:
+            print(f"***************************************************")
+            print(f"* Regressor {model_name}")
+            print(f"***************************************************")
+
         backTest = getPortTimeSeries(
-            y_test, X_test, daily_stock_prices_data, trained_model_pipeline
+            y_test,
+            X_test,
+            daily_stock_prices_data,
+            trained_model_pipeline,
+            verbose=True,
         )
 
         backTest["returns"] = backTest["Indexed Performance"].pct_change()
+        backTest.dropna(inplace=True)
 
-        s = "SPY"
-        output_name = OUTPUT_DATA_DIR + "\\" + model_name + "_" + s + ".html"
-        output_name = os.path.normpath(output_name)
+        if spy_RetRel is None:
+            start_date = backTest.index[0]
+            end_date = backTest.index[-1]
 
-        qs.reports.html(
-            backTest["returns"],
-            title="Strategy: " + model_name,
-            output=output_name,
-            periods_per_year=52,
-            benchmark=s,
-            benchmark_period=52,
+            spy_RetRel = getTickerPerformance(
+                "SPY", y_test, start_date, end_date, daily_stock_prices_data
+            )
+
+            spy_RetRel["returns"] = spy_RetRel["Portfolio"].pct_change()
+            spy_RetRel.dropna(inplace=True)
+
+            stats_report.append(
+                getBackTestStatsReportEntry("SPY", spy_RetRel["returns"])
+            )
+
+            spy_eof_dict = getBackTestEOYReportEntry("SPY", spy_RetRel["returns"])
+            EOY_keys = list(spy_eof_dict.keys())
+            EOY_report.append(list(spy_eof_dict.values()))
+
+        # remove first row
+        backTest = backTest.iloc[1:]
+
+        stats_report.append(
+            getBackTestStatsReportEntry(model_name, backTest["returns"])
         )
+
+        EOY_report.append(
+            list(getBackTestEOYReportEntry(model_name, backTest["returns"]).values())
+        )
+
+        generateHTMLReport(backTest["returns"], model_name, "SPY")
+
+    train = y_train["Date"].dt.date.values
+
+    test = [x.date() for x in spy_RetRel.index]
+
+    generateBackTestStatsReport(train, test, stats_report)
+    generateBackTestEOYReport(train, test, EOY_report, EOY_keys)
 
 
 def generateTestDataThreading(
