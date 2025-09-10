@@ -738,7 +738,7 @@ def getXRatios(x_):
     )
 
     # 13. Asset Turnover
-    X["Asset Turnover"] = x_["Revenue"] / x_["Property, Plant & Equipment, Net"]
+    X["Asset Turnover"] = x_["Revenue"] / x_["Total Assets"]
 
     # 14. Gross Profit Margin
     X["Gross Profit Margin"] = x_["Gross Profit"] / x_["Revenue"]
@@ -758,13 +758,10 @@ def getXRatios(x_):
     # 18. Book Equity/TL
     X["Book Equity/TL"] = x_["Total Equity"] / x_["Total Liabilities"]
 
-    # 19. Dividends Yield
-    # X["Dividends Yield"] = x_["Dividends Paid"] / x_["Market Cap"]
-
-    # 20. P/FCF
+    # 19. P/FCF
     X["P/FCF"] = x_["Market Cap"] / x_["FCF"]
 
-    # 21. Altman Z score
+    # 20. Altman Z score
     X["Z score"] = (
         3.25
         + 6.51 * X["(CA-CL)/TA"]

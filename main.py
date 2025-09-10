@@ -451,7 +451,8 @@ def featureImportance(localPath):
     )
 
     feature_df = feature_df.sort_values("Importance", ascending=False)
-    print(feature_df.head(20)[["Features", "Importance"]].to_string(index=False))
+    feature_df.reset_index(drop=True, inplace=True)
+    print(feature_df.head(X.shape[1])[["Features", "Importance"]].to_string())
 
     plt.bar(feature_df["Features"], feature_df["Importance"])
     plt.xticks(rotation=90)
