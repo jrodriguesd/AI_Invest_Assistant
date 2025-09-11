@@ -75,12 +75,10 @@ def handler(signum, frame):
 
 
 def getBackTestStatsReportEntry(model_name, returns):
-    total_return = round(qs.stats.comp(returns) * 100, 2)
-    total_return = f"{total_return:3.2f} %"
-    volatility = round(qs.stats.volatility(returns * 100, periods=52), 2)
-    volatility = f"{volatility:3.2f} %"
-    sortino = round(qs.stats.sortino(returns, periods=52), 2)
-    sharpe = round(qs.stats.sharpe(returns, periods=52), 2)
+    total_return = f"{round(qs.stats.comp(returns) * 100, 2):3.2f} %"
+    volatility = f"{round(qs.stats.volatility(returns * 100, periods=52), 2):3.2f} %"
+    sortino = f"{round(qs.stats.sortino(returns, periods=52), 2):.2f}"
+    sharpe = f"{round(qs.stats.sharpe(returns, periods=52), 2):.2f}"
     return [model_name, total_return, volatility, sharpe, sortino]
 
 
@@ -110,9 +108,7 @@ def getBackTestEOYReportEntry(model_name, returns):
     eoy_df = pd.DataFrame()
     eoy_df["Date"] = eoy["index"]
 
-    eoy_df["Return"] = round(eoy["EOY"] * 100, 2)
-    eoy_df["Return"] = eoy_df["Return"].astype(str)
-    eoy_df["Return"] = eoy_df["Return"] + " %"
+    eoy_df["Return"] = round(eoy["EOY"] * 100, 2).map("{:,.2f} %".format)
 
     eoy_df.set_index("Date", inplace=True)
 
