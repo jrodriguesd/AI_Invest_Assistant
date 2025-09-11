@@ -31,6 +31,7 @@ import simfin as sf
 from tqdm import tqdm
 
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
 
 from sklearn.preprocessing import PowerTransformer
 from sklearn.pipeline import Pipeline
@@ -54,9 +55,9 @@ REGRESSOR_LIST = [
     "ElasticNet",
     "KNeighborsRegressor",
     "LinearRegression",
-    "SVR",
+    # "SVR",
     "RandomForestRegressor",
-    "GradientBoostingRegressor",
+    # "GradientBoostingRegressor",
     "XGBRegressor",
 ]
 
@@ -528,7 +529,7 @@ def getPortTimeSeries(
 
 
 # Linear model pipeline
-def trainLinearModel(X_train, y_train):
+def trainLinearModel(X_train, y_train, optimize=False):
     pl_linear = Pipeline(
         [("Power Transformer", PowerTransformer()), ("linear", LinearRegression())]
     )
@@ -537,7 +538,7 @@ def trainLinearModel(X_train, y_train):
 
 
 # ElasticNet model pipeline
-def trainElasticNetModel(X_train, y_train):
+def trainElasticNetModel(X_train, y_train, optimize=False):
     pl_ElasticNet = Pipeline(
         [
             ("Power Transformer", PowerTransformer()),
@@ -549,19 +550,50 @@ def trainElasticNetModel(X_train, y_train):
 
 
 # KNeighbors regressor
-def trainKNeighborsModel(X_train, y_train):
+def trainKNeighborsModel(X_train, y_train, optimize=False):
     pl_KNeighbors = Pipeline(
         [
             ("Power Transformer", PowerTransformer()),
-            ("KNeighborsRegressor", KNeighborsRegressor(n_neighbors=40)),
+            (
+                "KNeighborsRegressor",
+                KNeighborsRegressor(
+                    n_neighbors=101,
+                    metric="minkowski",
+                    p=1,
+                    weights="uniform",
+                    algorithm="auto",
+                ),
+            ),
         ]
     )
-    pl_KNeighbors.fit(X_train, y_train)
-    return pl_KNeighbors
+    if not optimize:
+        pl_KNeighbors.fit(X_train, y_train)
+        return pl_KNeighbors
+    else:
+        hp_candidates = [
+            {
+                "KNeighborsRegressor__n_neighbors": [
+                    40,
+                    100,
+                    101,
+                    110,
+                ],
+                "KNeighborsRegressor__algorithm": [
+                    "auto",
+                    "ball_tree",
+                    "kd_tree",
+                    "brute",
+                ],
+            }
+        ]
+        gs_pipeline = GridSearchCV(pl_KNeighbors, hp_candidates, verbose=1)
+        gs_pipeline.fit(X_train, y_train)
+        ic(gs_pipeline.best_params_)
+        return gs_pipeline
 
 
 # DecisionTreeRegressor
-def traindecTreeModel(X_train, y_train):
+def traindecTreeModel(X_train, y_train, optimize=False):
     pl_decTree = Pipeline(
         [
             (
@@ -575,22 +607,38 @@ def traindecTreeModel(X_train, y_train):
 
 
 # RandomForestRegressor
-def trainrfregressorModel(X_train, y_train):
+def trainrfregressorModel(X_train, y_train, optimize=False):
     pl_rfregressor = Pipeline(
         [
             (
                 "RandomForestRegressor",
-                RandomForestRegressor(max_depth=10, random_state=42),
+                RandomForestRegressor(max_depth=5, random_state=None),
             )
         ]
     )
-    pl_rfregressor.fit(X_train, y_train)
 
-    return pl_rfregressor
+    if not optimize:
+        pl_rfregressor.fit(X_train, y_train)
+        return pl_rfregressor
+    else:
+        hp_candidates = [
+            {
+                "RandomForestRegressor__max_depth": [
+                    5,
+                    10,
+                    None,
+                ],
+                "RandomForestRegressor__random_state": [None, 42],
+            }
+        ]
+        gs_pipeline = GridSearchCV(pl_rfregressor, hp_candidates, verbose=1)
+        gs_pipeline.fit(X_train, y_train)
+        ic(gs_pipeline.best_params_)
+        return gs_pipeline
 
 
 # GradientBoostingRegressor
-def traingbregressorModel(X_train, y_train):
+def traingbregressorModel(X_train, y_train, optimize=False):
     pl_GradBregressor = Pipeline(
         [
             (
@@ -611,7 +659,7 @@ def traingbregressorModel(X_train, y_train):
 
 
 # SVM
-def trainsvmModel(X_train, y_train):
+def trainsvmModel(X_train, y_train, optimize=False):
     pl_svm = Pipeline(
         [
             ("Power Transformer", PowerTransformer()),
@@ -623,15 +671,47 @@ def trainsvmModel(X_train, y_train):
 
 
 # XGBoost
-def trainxgbregressorModel(X_train, y_train):
+def trainxgbregressorModel(X_train, y_train, optimize=False):
     pl_xgbregressor = Pipeline(
         [
-            ("XGBoost", xgb.XGBRegressor()),
+            (
+                "XGBoost",
+                xgb.XGBRegressor(
+                    colsample_bytree=0.7,
+                    learning_rate=0.03,
+                    max_depth=5,
+                    min_child_weight=4,
+                    n_estimators=500,
+                    nthread=4,
+                    objective="reg:squarederror",
+                    subsample=0.7,
+                ),
+            ),
         ]
     )
-    pl_xgbregressor.fit(X_train, y_train)
 
-    return pl_xgbregressor
+    if not optimize:
+        pl_xgbregressor.fit(X_train, y_train)
+        return pl_xgbregressor
+    else:
+        hp_candidates = [
+            {
+                "XGBoost__nthread": [
+                    4
+                ],  # when use hyperthread, xgboost may become slower
+                "XGBoost__objective": ["reg:squarederror"],
+                "XGBoost__learning_rate": [0.03, 0.05, 0.07],  # so called `eta` value
+                "XGBoost__max_depth": [5, 6, 7],
+                "XGBoost__min_child_weight": [4],
+                "XGBoost__subsample": [0.7],
+                "XGBoost__colsample_bytree": [0.7],
+                "XGBoost__n_estimators": [500],
+            }
+        ]
+        gs_pipeline = GridSearchCV(pl_xgbregressor, hp_candidates, verbose=3)
+        gs_pipeline.fit(X_train, y_train)
+        ic(gs_pipeline.best_params_)
+        return gs_pipeline
 
 
 def fixNansInX(x):
@@ -858,7 +938,7 @@ def generateDataFile(localPath):
 
     data = data[data["Fiscal Year"] >= first_year_to_keep]
 
-    data.sort_values(["Fiscal Year", "Ticker"], inplace=True)
+    data.sort_values(["Publish Date", "Ticker"], inplace=True)
     data.reset_index(drop=True, inplace=True)
 
     print("Before data cleaning data.shape: ", data.shape)
@@ -965,23 +1045,23 @@ def getXy(localPath):
     return X, y
 
 
-def getTrainedPipeline(model: str, X_train, y_train):
+def getTrainedPipeline(model: str, X_train, y_train, optimize=False):
     if model == "LinearRegression":
-        model_pl = trainLinearModel(X_train, y_train)
+        model_pl = trainLinearModel(X_train, y_train, optimize)
     if model == "ElasticNet":
-        model_pl = trainElasticNetModel(X_train, y_train)
+        model_pl = trainElasticNetModel(X_train, y_train, optimize)
     if model == "KNeighborsRegressor":
-        model_pl = trainKNeighborsModel(X_train, y_train)
+        model_pl = trainKNeighborsModel(X_train, y_train, optimize)
     if model == "RandomForestRegressor":
-        model_pl = trainrfregressorModel(X_train, y_train)
+        model_pl = trainrfregressorModel(X_train, y_train, optimize)
     if model == "DecisionTreeRegressor":
-        model_pl = traindecTreeModel(X_train, y_train)
+        model_pl = traindecTreeModel(X_train, y_train, optimize)
     if model == "GradientBoostingRegressor":
-        model_pl = traingbregressorModel(X_train, y_train)
+        model_pl = traingbregressorModel(X_train, y_train, optimize)
     if model == "SVR":
-        model_pl = trainsvmModel(X_train, y_train)
+        model_pl = trainsvmModel(X_train, y_train, optimize)
     if model == "XGBRegressor":
-        model_pl = trainxgbregressorModel(X_train, y_train)
+        model_pl = trainxgbregressorModel(X_train, y_train, optimize)
 
     return model_pl
 

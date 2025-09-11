@@ -154,7 +154,7 @@ def generateHTMLReport(returns, model_name, benchmark):
     pass
 
 
-def backTest(localPath, verbose=True):
+def backTest(localPath, models, verbose=True, optimize=False):
     X, y = getXy(localPath)
 
     daily_stock_prices_data = getStockPricesIndexed(localPath)
@@ -167,37 +167,44 @@ def backTest(localPath, verbose=True):
     X_test = X.loc[~train_mask]
     y_test = y.loc[~train_mask]
 
-    yperf = y_train["Perf"]
-
-    models = [
-        "LinearRegression",
-        "KNeighborsRegressor",
-        "GradientBoostingRegressor",
-        "RandomForestRegressor",
-        "XGBRegressor",
-    ]
-
     spy_RetRel = None
     stats_report = []
     EOY_report = []
     EOY_keys = []
 
+    trained_model_pipeline = None
     for model_name in models:
         # Train model
-        trained_model_pipeline = getTrainedPipeline(model_name, X_train, yperf)
+        if optimize:
+            yperf = y["Perf"]
+            trained_model_pipeline = getTrainedPipeline(model_name, X, yperf, optimize)
+        else:
+            yperf = y_train["Perf"]
+            trained_model_pipeline = getTrainedPipeline(
+                model_name, X_train, yperf, optimize
+            )
 
         if verbose:
             print(f"***************************************************")
             print(f"* Regressor {model_name}")
             print(f"***************************************************")
 
-        backTest = getPortTimeSeries(
-            y_test,
-            X_test,
-            daily_stock_prices_data,
-            trained_model_pipeline,
-            verbose=True,
-        )
+        if optimize:
+            backTest = getPortTimeSeries(
+                y,
+                X,
+                daily_stock_prices_data,
+                trained_model_pipeline,
+                verbose=True,
+            )
+        else:
+            backTest = getPortTimeSeries(
+                y_test,
+                X_test,
+                daily_stock_prices_data,
+                trained_model_pipeline,
+                verbose=True,
+            )
 
         backTest["returns"] = backTest["Indexed Performance"].pct_change()
         backTest.dropna(inplace=True)
@@ -371,7 +378,7 @@ def printResults(model_name, stockPicks):
     )
 
 
-def stockPicks(localPath):
+def stockPicks(localPath, models):
     X, y = getXy(localPath)
     yperf = y["Perf"].astype(float)
 
@@ -399,14 +406,6 @@ def stockPicks(localPath):
     # **********************************************
     # Get X data for prediction (End)
     # **********************************************
-
-    models = [
-        "LinearRegression",
-        "KNeighborsRegressor",
-        "GradientBoostingRegressor",
-        "RandomForestRegressor",
-        "XGBRegressor",
-    ]
 
     for model_name in models:
         x_wrk_ = x_.copy()
@@ -510,7 +509,7 @@ def main():
         generateDataFile(localPath=INPUT_DATA_DIR)
 
     if args.back_test:
-        backTest(localPath=INPUT_DATA_DIR)
+        backTest(localPath=INPUT_DATA_DIR, models=getRegressorList())
 
     if args.generate_test_data:
         generateTestData(localPath=INPUT_DATA_DIR)
@@ -519,7 +518,7 @@ def main():
         plotTestData(localPath=INPUT_DATA_DIR)
 
     if args.stock_picks:
-        stockPicks(localPath=INPUT_DATA_DIR)
+        stockPicks(localPath=INPUT_DATA_DIR, models=getRegressorList())
 
     if args.feature_importance:
         featureImportance(localPath=INPUT_DATA_DIR)
