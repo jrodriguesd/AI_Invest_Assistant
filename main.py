@@ -3,7 +3,7 @@
 #
 # * ---------------------------------------------------------------- *
 # *
-# * Project Description:
+# * Project Description: AI_Invest_Assistant
 # *
 # * ---DATE--   --DESCRIPTION------------------------------ -AUTHOR- *
 # * 03Sep2025   Creation                                     JFRD
